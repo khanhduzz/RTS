@@ -39,6 +39,57 @@ class OrderBookEntry {
     }
 
     public void match() {
-        // Simple matching logic (will expand later)
+        while (!buys.isEmpty() && !sells.isEmpty()) {
+            BigDecimal bestBuyPrice = buys.firstKey();
+            BigDecimal bestSellPrice = sells.firstKey();
+
+            // No match possible
+            if (bestBuyPrice.compareTo(bestSellPrice) < 0) {
+                break;
+            }
+
+            Deque<Order> buyQueue = buys.get(bestBuyPrice);
+            Deque<Order> sellQueue = sells.get(bestSellPrice);
+
+            Order buyOrder = buyQueue.peekFirst();
+            Order sellOrder = sellQueue.peekFirst();
+
+            if (buyOrder == null || sellOrder == null)
+                break;
+
+            // Calculate match quantity
+            int matchQty = Math.min(
+                    buyOrder.getQuantity() - buyOrder.getFilledQuantity(),
+                    sellOrder.getQuantity() - sellOrder.getFilledQuantity());
+
+            if (matchQty > 0) {
+                // Execute trade
+                executeTrade(buyOrder, sellOrder, matchQty);
+            }
+
+            // Remove filled orders
+            if (buyOrder.getFilledQuantity() >= buyOrder.getQuantity()) {
+                buyQueue.pollFirst();
+                if (buyQueue.isEmpty())
+                    buys.remove(bestBuyPrice);
+            }
+            if (sellOrder.getFilledQuantity() >= sellOrder.getQuantity()) {
+                sellQueue.pollFirst();
+                if (sellQueue.isEmpty())
+                    sells.remove(bestSellPrice);
+            }
+        }
+    }
+
+    private void executeTrade(Order buyOrder, Order sellOrder, int qty) {
+        buyOrder.fill(qty);
+        sellOrder.fill(qty);
+
+        System.out.println("TRADE EXECUTED: " + qty + " shares of " + buyOrder.getSymbol()
+                + " @ " + buyOrder.getPrice()
+                + " | Buyer: " + buyOrder.getUserId()
+                + " | Seller: " + sellOrder.getUserId());
+
+        // Later we will publish TradeExecuted event here
     }
 }
