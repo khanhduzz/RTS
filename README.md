@@ -1,4 +1,4 @@
-# Real-Time Intelligent Trading Ecosystem (Vietnam Market)
+# Real-Time Trading System (RTS)
 
 **Technical Proposal & Full System Blueprint**
 
