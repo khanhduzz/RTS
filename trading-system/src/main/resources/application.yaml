@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: tradingsystem
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tradingsystem
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  # sql:
+  #   init:
+  #     mode: always
+
+server:
+  port: 8080
+
+# Logging
+logging:
+  level:
+    com.khanhduzz: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
