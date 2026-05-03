@@ -169,21 +169,10 @@ while (!buyOrders.isEmpty() && !sellOrders.isEmpty() && bestBuyPrice >= bestSell
 
 ## 8. Consistency Model
 
-Trading Engine
-
-- Strong (in-memory)
-
-Portfolio
-
-- Eventual (CQRS)
-
-Analytics
-
-- Eventual
-
-AI Signals
-
-- Best-effort
+- Trading Engine - Strong (in-memory)
+- Portfolio - Eventual (CQRS)
+- Analytics - Eventual
+- AI Signals - Best-effort
 
 ## 9. Redis Design
 
@@ -208,7 +197,7 @@ AI Signals
 - **Dashboards:** Grafana
 - **Alerts:** Basic rules
 
-## 12. Development Roadmap (Recommended Phases)
+## 12. Development Roadmap
 
 **Phase 1 (Weeks 1-3):** Modulith + Domain Model + PostgreSQL + Basic Matching
 
@@ -274,7 +263,7 @@ services:
 - MinIO + GitHub Actions
 - Limited retention policies
 
-## 18. Frontend (Recommended)
+## 18. Frontend
 
 - React / Next.js + TypeScript
 - WebSocket (STOMP or reactive)
@@ -292,19 +281,13 @@ This system demonstrates **advanced backend engineering** skills:
 - Cloud-native & observable architecture
 - Vietnam market domain knowledge
 
-Recommended Portfolio Assets:
+Portfolio Assets:
 
 - Clean GitHub repo with diagrams (C4 model)
 - Architecture Decision Records (ADR)
 - Live demo (if possible)
 - Blog posts / README walkthrough
 
-Next Steps:
-
-1. Domain modeling (Order, Portfolio aggregates)
-2. Implement core Trading Engine
-3. Set up Kafka + events
-
-End of V4 Blueprint
+End of Blueprint
 
 Version: Enhanced May 2026
