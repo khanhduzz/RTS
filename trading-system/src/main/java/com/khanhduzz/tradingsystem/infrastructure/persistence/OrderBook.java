@@ -26,7 +26,9 @@ public class OrderBook {
     @EventListener(ApplicationReadyEvent.class)
     public void loadPendingOrders() {
         System.out.println("Loading pending orders from database...");
-        List<Order> pendingOrders = orderRepository.findByStatus(OrderStatus.PENDING);
+
+        List<OrderStatus> statuses = List.of(OrderStatus.PENDING, OrderStatus.PARTIALLY_FILLED);
+        List<Order> pendingOrders = orderRepository.findByStatusIn(statuses);
 
         for (Order order : pendingOrders) {
             addOrder(order);
