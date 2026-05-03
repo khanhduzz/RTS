@@ -1,8 +1,12 @@
 package com.khanhduzz.tradingsystem.infrastructure.persistence;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.stereotype.Component;
 import com.khanhduzz.tradingsystem.domain.order.Order;
 import com.khanhduzz.tradingsystem.enums.OrderSide;
+import com.khanhduzz.tradingsystem.enums.OrderStatus;
+
+import org.springframework.context.event.EventListener;
 
 import java.math.BigDecimal;
 
@@ -13,16 +17,35 @@ import java.util.concurrent.ConcurrentSkipListMap;
 public class OrderBook {
 
     private final Map<String, OrderBookEntry> books = new HashMap<>();
+    private final OrderRepository orderRepository;
+
+    public OrderBook(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void loadPendingOrders() {
+        System.out.println("Loading pending orders from database...");
+        List<Order> pendingOrders = orderRepository.findByStatus(OrderStatus.PENDING);
+
+        for (Order order : pendingOrders) {
+            addOrder(order);
+        }
+        System.out.println("Loaded " + pendingOrders.size() + " pending orders.");
+    }
 
     public void addOrder(Order order) {
-        books.computeIfAbsent(order.getSymbol(), k -> new OrderBookEntry())
-                .addOrder(order);
+        if (order.getStatus() == OrderStatus.PENDING ||
+                order.getStatus() == OrderStatus.PARTIALLY_FILLED) {
+            books.computeIfAbsent(order.getSymbol(), k -> new OrderBookEntry())
+                    .addOrder(order);
+        }
     }
 
     public void matchOrders(String symbol) {
         OrderBookEntry entry = books.get(symbol);
         if (entry != null) {
-            entry.match();
+            entry.match(orderRepository);
         }
     }
 }
@@ -38,7 +61,7 @@ class OrderBookEntry {
         map.computeIfAbsent(order.getPrice(), k -> new ArrayDeque<>()).add(order);
     }
 
-    public void match() {
+    public void match(OrderRepository orderRepository) {
         while (!buys.isEmpty() && !sells.isEmpty()) {
             BigDecimal bestBuyPrice = buys.firstKey();
             BigDecimal bestSellPrice = sells.firstKey();
@@ -64,7 +87,7 @@ class OrderBookEntry {
 
             if (matchQty > 0) {
                 // Execute trade
-                executeTrade(buyOrder, sellOrder, matchQty);
+                executeTrade(buyOrder, sellOrder, matchQty, orderRepository);
             }
 
             // Remove filled orders
@@ -81,9 +104,12 @@ class OrderBookEntry {
         }
     }
 
-    private void executeTrade(Order buyOrder, Order sellOrder, int qty) {
+    private void executeTrade(Order buyOrder, Order sellOrder, int qty, OrderRepository orderRepository) {
         buyOrder.fill(qty);
         sellOrder.fill(qty);
+
+        orderRepository.save(buyOrder);
+        orderRepository.save(sellOrder);
 
         System.out.println("TRADE EXECUTED: " + qty + " shares of " + buyOrder.getSymbol()
                 + " @ " + buyOrder.getPrice()
