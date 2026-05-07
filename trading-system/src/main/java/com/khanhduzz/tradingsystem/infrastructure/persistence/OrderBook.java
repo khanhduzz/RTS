@@ -2,6 +2,8 @@ package com.khanhduzz.tradingsystem.infrastructure.persistence;
 
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.stereotype.Component;
+
+import com.khanhduzz.tradingsystem.application.PortfolioService;
 import com.khanhduzz.tradingsystem.domain.order.Order;
 import com.khanhduzz.tradingsystem.enums.OrderSide;
 import com.khanhduzz.tradingsystem.enums.OrderStatus;
@@ -18,9 +20,11 @@ public class OrderBook {
 
     private final Map<String, OrderBookEntry> books = new HashMap<>();
     private final OrderRepository orderRepository;
+    private final PortfolioService portfolioService;
 
-    public OrderBook(OrderRepository orderRepository) {
+    public OrderBook(OrderRepository orderRepository, PortfolioService portfolioService) {
         this.orderRepository = orderRepository;
+        this.portfolioService = portfolioService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -47,7 +51,7 @@ public class OrderBook {
     public void matchOrders(String symbol) {
         OrderBookEntry entry = books.get(symbol);
         if (entry != null) {
-            entry.match(orderRepository);
+            entry.match(orderRepository, portfolioService);
         }
     }
 }
@@ -63,7 +67,7 @@ class OrderBookEntry {
         map.computeIfAbsent(order.getPrice(), k -> new ArrayDeque<>()).add(order);
     }
 
-    public void match(OrderRepository orderRepository) {
+    public void match(OrderRepository orderRepository, PortfolioService portfolioService) {
         while (!buys.isEmpty() && !sells.isEmpty()) {
             BigDecimal bestBuyPrice = buys.firstKey();
             BigDecimal bestSellPrice = sells.firstKey();
@@ -89,7 +93,7 @@ class OrderBookEntry {
 
             if (matchQty > 0) {
                 // Execute trade
-                executeTrade(buyOrder, sellOrder, matchQty, orderRepository);
+                executeTrade(buyOrder, sellOrder, matchQty, orderRepository, portfolioService);
             }
 
             // Remove filled orders
@@ -106,18 +110,23 @@ class OrderBookEntry {
         }
     }
 
-    private void executeTrade(Order buyOrder, Order sellOrder, int qty, OrderRepository orderRepository) {
+    private void executeTrade(Order buyOrder, Order sellOrder, int qty, OrderRepository orderRepository,
+            PortfolioService portfolioService) {
+
+        BigDecimal tradePrice = (buyOrder.getFilledQuantity() == 0)
+                ? sellOrder.getPrice()
+                : buyOrder.getPrice();
         buyOrder.fill(qty);
         sellOrder.fill(qty);
 
         orderRepository.save(buyOrder);
         orderRepository.save(sellOrder);
 
+        portfolioService.updateAfterTrade(buyOrder, sellOrder, qty, tradePrice);
+
         System.out.println("TRADE EXECUTED: " + qty + " shares of " + buyOrder.getSymbol()
                 + " @ " + buyOrder.getPrice()
                 + " | Buyer: " + buyOrder.getUserId()
                 + " | Seller: " + sellOrder.getUserId());
-
-        // Later we will publish TradeExecuted event here
     }
 }

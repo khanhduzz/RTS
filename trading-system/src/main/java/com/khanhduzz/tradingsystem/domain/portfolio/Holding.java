@@ -16,6 +16,8 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class Holding {
-    private Integer quantity;
-    private BigDecimal averagePrice;
+    @Builder.Default
+    private Integer quantity = 0;
+    @Builder.Default
+    private BigDecimal averagePrice = BigDecimal.ZERO;
 }

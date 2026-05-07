@@ -1,17 +1,15 @@
 package com.khanhduzz.tradingsystem.application;
 
-import lombok.RequiredArgsConstructor;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.khanhduzz.tradingsystem.domain.order.Order;
 import com.khanhduzz.tradingsystem.domain.portfolio.Holding;
 import com.khanhduzz.tradingsystem.domain.portfolio.Portfolio;
 import com.khanhduzz.tradingsystem.infrastructure.persistence.PortfolioRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +24,7 @@ public class PortfolioService {
                 .orElseGet(() -> {
                     Portfolio portfolio = Portfolio.builder()
                             .userId(userId)
-                            .cashBalance(new BigDecimal("100000000")) // 100 triệu VND
+                            .cashBalance(new BigDecimal("100000000"))
                             .build();
                     return portfolioRepository.save(portfolio);
                 });
@@ -34,46 +32,55 @@ public class PortfolioService {
 
     @Transactional
     public void updateAfterTrade(Order buyOrder, Order sellOrder, int qty, BigDecimal price) {
-        // Update Buyer
-        Portfolio buyer = getOrCreatePortfolio(buyOrder.getUserId());
-        updateBuyerPortfolio(buyer, buyOrder.getSymbol(), qty, price);
-
-        // Update Seller
-        Portfolio seller = getOrCreatePortfolio(sellOrder.getUserId());
-        updateSellerPortfolio(seller, sellOrder.getSymbol(), qty, price);
+        updateBuyer(buyOrder.getUserId(), buyOrder.getSymbol(), qty, price);
+        updateSeller(sellOrder.getUserId(), sellOrder.getSymbol(), qty, price);
     }
 
-    private void updateBuyerPortfolio(Portfolio portfolio, String symbol, int qty, BigDecimal price) {
+    private void updateBuyer(String userId, String symbol, int qty, BigDecimal price) {
+        Portfolio portfolio = getOrCreatePortfolio(userId);
+
         portfolio.getHoldings().compute(symbol, (k, holding) -> {
             if (holding == null) {
-                return new Holding(qty, price);
-            } else {
-                // Calculate new average price
-                BigDecimal totalCost = holding.getAveragePrice().multiply(new BigDecimal(holding.getQuantity()))
-                        .add(price.multiply(new BigDecimal(qty)));
-                int newQty = holding.getQuantity() + qty;
-                return new Holding(newQty, totalCost.divide(new BigDecimal(newQty), 2, RoundingMode.HALF_UP));
+                return Holding.builder()
+                        .quantity(qty)
+                        .averagePrice(price)
+                        .build();
             }
+            // Calculate new average price
+            BigDecimal totalCost = holding.getAveragePrice()
+                    .multiply(BigDecimal.valueOf(holding.getQuantity()))
+                    .add(price.multiply(BigDecimal.valueOf(qty)));
+
+            int newQty = holding.getQuantity() + qty;
+            BigDecimal newAvg = totalCost.divide(BigDecimal.valueOf(newQty), 2, RoundingMode.HALF_UP);
+
+            return Holding.builder()
+                    .quantity(newQty)
+                    .averagePrice(newAvg)
+                    .build();
         });
 
-        // Deduct cash
-        BigDecimal cost = price.multiply(new BigDecimal(qty));
+        BigDecimal cost = price.multiply(BigDecimal.valueOf(qty));
         portfolio.setCashBalance(portfolio.getCashBalance().subtract(cost));
 
         portfolioRepository.save(portfolio);
     }
 
-    private void updateSellerPortfolio(Portfolio portfolio, String symbol, int qty, BigDecimal price) {
-        Holding holding = portfolio.getHoldings().get(symbol);
-        if (holding != null) {
-            holding.setQuantity(holding.getQuantity() - qty);
-            if (holding.getQuantity() <= 0) {
-                portfolio.getHoldings().remove(symbol);
-            }
-        }
+    private void updateSeller(String userId, String symbol, int qty, BigDecimal price) {
+        Portfolio portfolio = getOrCreatePortfolio(userId);
 
-        // Add cash
-        BigDecimal revenue = price.multiply(new BigDecimal(qty));
+        portfolio.getHoldings().computeIfPresent(symbol, (k, holding) -> {
+            int newQty = holding.getQuantity() - qty;
+            if (newQty <= 0) {
+                return null; // Remove from map
+            }
+            return Holding.builder()
+                    .quantity(newQty)
+                    .averagePrice(holding.getAveragePrice())
+                    .build();
+        });
+
+        BigDecimal revenue = price.multiply(BigDecimal.valueOf(qty));
         portfolio.setCashBalance(portfolio.getCashBalance().add(revenue));
 
         portfolioRepository.save(portfolio);

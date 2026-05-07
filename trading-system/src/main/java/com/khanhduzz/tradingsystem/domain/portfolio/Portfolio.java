@@ -19,11 +19,13 @@ public class Portfolio {
     private String userId;
 
     @ElementCollection
-    @CollectionTable(name = "portfolio_holdings")
+    @CollectionTable(name = "portfolio_holdings", joinColumns = @JoinColumn(name = "user_id"))
     @MapKeyColumn(name = "symbol")
+    // @Column(name = "holding")
     @Builder.Default
     private Map<String, Holding> holdings = new HashMap<>();
 
     @Builder.Default
+    @Column(precision = 15, scale = 2, nullable = false)
     private BigDecimal cashBalance = BigDecimal.ZERO;
 }
